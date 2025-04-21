@@ -94,5 +94,8 @@ def add_grade():
 
 # ---------------- Lancer l'application ----------------
 if __name__ == "__main__":
-    # Lancer avec Waitress pour la production
-    serve(app, host='0.0.0.0', port=8080)
+    app.run(debug=True, port=8080)
+
+    # serve(app, host='0.0.0.0', port=8080)
+app.run(debug=True)
+
