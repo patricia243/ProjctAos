@@ -1,13 +1,20 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from config import Config
 from flask_migrate import Migrate
+from waitress import serve
+import os
 
-
+# Configuration de l'application
+class Config:
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///site.db'  # Chemin vers votre base de données SQLite
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 app = Flask(__name__)
 app.config.from_object(Config)
+
+# Initialisation de SQLAlchemy et Flask-Migrate
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
 # ---------------- Modèle Student ----------------
 class Student(db.Model):
@@ -36,10 +43,6 @@ class Grade(db.Model):
             'score': self.score,
             'student_id': self.student_id
         }
-
-# ---------- Créer la base de données ----------
-with app.app_context():
-    db.create_all()
 
 # ---------------- Page d'accueil ----------------
 @app.route('/')
@@ -90,5 +93,6 @@ def add_grade():
     return jsonify(new_grade.to_dict()), 201
 
 # ---------------- Lancer l'application ----------------
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    # Lancer avec Waitress pour la production
+    serve(app, host='0.0.0.0', port=8080)
