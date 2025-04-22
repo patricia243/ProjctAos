@@ -1,18 +1,11 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from waitress import serve
-import os
-
-# Configuration de l'application
-class Config:
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///site.db'  # Chemin vers votre base de données SQLite
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
+from config import Config
 
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Initialisation de SQLAlchemy et Flask-Migrate
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
@@ -23,11 +16,7 @@ class Student(db.Model):
     email = db.Column(db.String(100), nullable=False, unique=True)
 
     def to_dict(self):
-        return {
-            'id': self.id,
-            'name': self.name,
-            'email': self.email
-        }
+        return {'id': self.id, 'name': self.name, 'email': self.email}
 
 # ---------------- Modèle Grade ----------------
 class Grade(db.Model):
@@ -35,6 +24,7 @@ class Grade(db.Model):
     subject = db.Column(db.String(120), nullable=False)
     score = db.Column(db.Float, nullable=False)
     student_id = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
+    student = db.relationship('Student', backref=db.backref('grades', lazy=True))
 
     def to_dict(self):
         return {
@@ -48,14 +38,32 @@ class Grade(db.Model):
 @app.route('/')
 def home():
     return '''
-    <h1>Bienvenue sur l'API Étudiants</h1>
-    <p>Voici les routes disponibles :</p>
-    <ul>
-        <li><strong>GET /students</strong> : Liste des étudiants</li>
-        <li><strong>POST /students</strong> : Ajouter un étudiant</li>
-        <li><strong>GET /grades</strong> : Liste des notes</li>
-        <li><strong>POST /grades</strong> : Ajouter une note</li>
-    </ul>
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <title>API Étudiants</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+            body { background-color: #f8f9fa; padding: 2rem; font-family: 'Segoe UI', sans-serif; }
+            .container { background-color: white; padding: 2rem; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
+            h1 { color: #0d6efd; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Bienvenue sur l'API Étudiants 📘</h1>
+            <p>Voici les routes disponibles :</p>
+            <ul>
+                <li><strong>GET /students</strong> : Liste des étudiants</li>
+                <li><strong>POST /students</strong> : Ajouter un étudiant</li>
+                <li><strong>GET /students/&lt;id&gt;</strong> : Détails d’un étudiant</li>
+                <li><strong>GET /grades</strong> : Liste des notes</li>
+                <li><strong>POST /grades</strong> : Ajouter une note</li>
+            </ul>
+        </div>
+    </body>
+    </html>
     '''
 
 # ---------------- Routes Students ----------------
@@ -75,6 +83,23 @@ def add_student():
     db.session.commit()
     return jsonify(new_student.to_dict()), 201
 
+@app.route('/students/<int:id>', methods=['GET'])
+def get_student(id):
+    student = Student.query.get_or_404(id)
+    return jsonify(student.to_dict())
+
+@app.route('/students/<int:id>', methods=['PUT'])
+def update_student(id):
+    student = Student.query.get_or_404(id)
+    data = request.get_json()
+    if 'name' in data:
+        student.name = data['name']
+    if 'email' in data:
+        student.email = data['email']
+    
+    db.session.commit()
+    return jsonify(student.to_dict())
+
 # ---------------- Routes Grades ----------------
 @app.route('/grades', methods=['GET'])
 def get_grades():
@@ -92,10 +117,6 @@ def add_grade():
     db.session.commit()
     return jsonify(new_grade.to_dict()), 201
 
-# ---------------- Lancer l'application ----------------
-if __name__ == "__main__":
+# ---------------- Lancement ----------------
+if __name__ == '__main__':
     app.run(debug=True, port=8080)
-
-    # serve(app, host='0.0.0.0', port=8080)
-app.run(debug=True)
-

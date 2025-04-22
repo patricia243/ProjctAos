@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: flask-student-api
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python start.py"
+    envVars:
+      - key: SECRET_KEY
+        value: mon_secret_clé
+      - key: DATABASE_URL
+        value: sqlite:///db.sqlite3
+      - key: FLASK_ENV  

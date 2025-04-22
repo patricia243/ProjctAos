@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
@@ -6,6 +7,7 @@ class Student(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100), nullable=False, unique=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)  # Ajout de la colonne created_at
 
     def __repr__(self):
         return f'<Student {self.name}>'
@@ -14,7 +16,8 @@ class Student(db.Model):
         return {
             'id': self.id,
             'name': self.name,
-            'email': self.email
+            'email': self.email,
+            'created_at': self.created_at.isoformat()  # Renvoi de la date en format ISO 8601
         }
 
 
@@ -36,5 +39,3 @@ class Grade(db.Model):
             'score': self.score,
             'student_id': self.student_id
         }
-
-    
