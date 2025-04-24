@@ -44,16 +44,22 @@ def home():
         <meta charset="UTF-8">
         <title>Bienvenue</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+            body, html {
+                height: 100%;
+            }
+        </style>
     </head>
-    <body class="bg-light text-center py-5">
-        <div class="container">
+    <body class="bg-light d-flex align-items-center justify-content-center" style="height:100vh;">
+        <div class="text-center">
             <h1 class="mb-4">🎓 Bienvenue sur l'API Étudiants</h1>
             <p class="lead">Cliquez ci-dessous pour ajouter un nouvel étudiant et une note.</p>
-            <a href="{{ url_for('formulaire') }}" class="btn btn-primary btn-lg">Ajouter </a>
+            <a href="{{ url_for('formulaire') }}" class="btn btn-primary btn-lg">Ajouter</a>
         </div>
     </body>
     </html>
     ''')
+
 
 
 # ---------------- Formulaire HTML ----------------
@@ -159,7 +165,19 @@ def add_grade():
     return jsonify(new_grade.to_dict()), 201
 
 
+
+
+
 # ---------------- ajouter une route HTML séparée /students/html ----------------
+
+@app.route('/students/delete/<int:student_id>')
+def delete_student(student_id):
+    student = Student.query.get_or_404(student_id)
+    for grade in student.grades:
+        db.session.delete(grade)
+    db.session.delete(student)
+    db.session.commit()
+    return redirect(url_for('students_html'))
 
 @app.route('/students/html')
 def students_html():
@@ -173,9 +191,13 @@ def students_html():
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     </head>
     <body class="bg-light py-5">
-        <div class="container">
-            <h2 class="mb-4 text-center text-primary">📋 Liste des Étudiants et leurs Notes</h2>
-            <table class="table table-bordered table-striped shadow-sm">
+        <div class="container bg-white p-4 rounded shadow">
+            <h2 class="mb-4 text-primary text-center">Liste des étudiants</h2>
+            <div class="d-flex justify-content-between mb-3">
+                <a href="{{ url_for('formulaire') }}" class="btn btn-success">➕ Ajouter un étudiant</a>
+                <a href="{{ url_for('home') }}" class="btn btn-secondary">🏠 Retour accueil</a>
+            </div>
+            <table class="table table-bordered table-striped">
                 <thead class="table-dark">
                     <tr>
                         <th>#</th>
@@ -183,37 +205,95 @@ def students_html():
                         <th>Email</th>
                         <th>Matière</th>
                         <th>Note</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for student in students %}
-                        {% for grade in student.grades %}
-                            <tr>
-                                <td>{{ student.id }}</td>
-                                <td>{{ student.name }}</td>
-                                <td>{{ student.email }}</td>
-                                <td>{{ grade.subject }}</td>
-                                <td>{{ grade.score }}</td>
-                            </tr>
-                        {% endfor %}
-                        {% if student.grades|length == 0 %}
-                            <tr>
-                                <td>{{ student.id }}</td>
-                                <td>{{ student.name }}</td>
-                                <td>{{ student.email }}</td>
-                                <td colspan="2" class="text-muted">Aucune note</td>
-                            </tr>
-                        {% endif %}
+                        <tr>
+                            <td>{{ student.id }}</td>
+                            <td>{{ student.name }}</td>
+                            <td>{{ student.email }}</td>
+                            <td>
+                                {% for grade in student.grades %}
+                                    {{ grade.subject }}<br>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% for grade in student.grades %}
+                                    {{ grade.score }}<br>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('edit_student', student_id=student.id) }}" class="btn btn-sm btn-warning">✏️ Modifier</a>
+
+                                <a href="{{ url_for('delete_student', student_id=student.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Supprimer cet étudiant ?')">🗑️ Supprimer</a>
+                                  
+                            </td>
+                        </tr>
                     {% endfor %}
                 </tbody>
             </table>
-            <div class="text-center mt-4">
-                <a href="{{ url_for('home') }}" class="btn btn-secondary">🏠 Retour à l'accueil</a>
-            </div>
         </div>
     </body>
     </html>
     ''', students=students)
+
+# ---------------- le bouton "Modifier----------------
+
+@app.route('/students/edit/<int:student_id>', methods=['GET', 'POST'])
+def edit_student(student_id):
+    student = Student.query.get_or_404(student_id)
+
+    if request.method == 'POST':
+        student.name = request.form['name']
+        student.email = request.form['email']
+
+        # Mise à jour des notes
+        for i, grade in enumerate(student.grades):
+            grade.subject = request.form.get(f'subject_{i}')
+            grade.score = float(request.form.get(f'score_{i}'))
+
+        db.session.commit()
+        return redirect(url_for('students_html'))
+
+    return render_template_string('''
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <title>Modifier Étudiant</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-light py-5">
+        <div class="container bg-white p-4 rounded shadow">
+            <h2 class="mb-4 text-primary">✏️ Modifier l'étudiant</h2>
+            <form method="POST">
+                <div class="mb-3">
+                    <label for="name" class="form-label">Nom</label>
+                    <input type="text" class="form-control" id="name" name="name" value="{{ student.name }}" required>
+                </div>
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email</label>
+                    <input type="email" class="form-control" id="email" name="email" value="{{ student.email }}" required>
+                </div>
+                {% for grade in student.grades %}
+                    {% set i = loop.index0 %}
+                    <div class="mb-3">
+                        <label class="form-label">Matière {{ i + 1 }}</label>
+                        <input type="text" class="form-control" name="subject_{{ i }}" value="{{ grade.subject }}" required>
+                        <label class="form-label mt-2">Note</label>
+                        <input type="number" class="form-control" name="score_{{ i }}" value="{{ grade.score }}" required>
+                    </div>
+                {% endfor %}
+                <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+                <a href="{{ url_for('students_html') }}" class="btn btn-secondary">↩️ Retour</a>
+            </form>
+        </div>
+    </body>
+    </html>
+    ''', student=student)
+
 
 
 # ---------------- Lancement ----------------
