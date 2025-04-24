@@ -35,32 +35,47 @@ class Grade(db.Model):
         }
 
 # ---------------- Page d'accueil ----------------
-@app.route('/')
+@app.route("/", methods=["GET"])
 def home():
     return '''
     <!DOCTYPE html>
     <html lang="fr">
     <head>
         <meta charset="UTF-8">
-        <title>API Étudiants</title>
+        <title>Formulaires Étudiants & Notes</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-        <style>
-            body { background-color: #f8f9fa; padding: 2rem; font-family: 'Segoe UI', sans-serif; }
-            .container { background-color: white; padding: 2rem; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
-            h1 { color: #0d6efd; }
-        </style>
     </head>
-    <body>
-        <div class="container">
-            <h1>Bienvenue sur l'API Étudiants 📘</h1>
-            <p>Voici les routes disponibles :</p>
-            <ul>
-                <li><strong>GET /students</strong> : Liste des étudiants</li>
-                <li><strong>POST /students</strong> : Ajouter un étudiant</li>
-                <li><strong>GET /students/&lt;id&gt;</strong> : Détails d’un étudiant</li>
-                <li><strong>GET /grades</strong> : Liste des notes</li>
-                <li><strong>POST /grades</strong> : Ajouter une note</li>
-            </ul>
+    <body class="bg-light">
+        <div class="container py-5">
+            <h1 class="text-primary mb-4">Ajouter un Étudiant 📘</h1>
+            <form action="/students" method="post" class="mb-5">
+                <div class="mb-3">
+                    <label class="form-label">Nom</label>
+                    <input type="text" name="name" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input type="email" name="email" class="form-control" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Ajouter Étudiant</button>
+            </form>
+
+            <h1 class="text-success mb-4">Ajouter une Note 📝</h1>
+            <form action="/grades" method="post">
+                <div class="mb-3">
+                    <label class="form-label">ID Étudiant</label>
+                    <input type="number" name="student_id" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Matière</label>
+                    <input type="text" name="subject" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Note</label>
+                    <input type="number" step="0.01" name="score" class="form-control" required>
+                </div>
+                <button type="submit" class="btn btn-success">Ajouter Note</button>
+            </form>
         </div>
     </body>
     </html>
@@ -74,13 +89,16 @@ def get_students():
 
 @app.route('/students', methods=['POST'])
 def add_student():
-    data = request.get_json()
+    data = request.form or request.get_json()
     if not data or 'name' not in data or 'email' not in data:
         return jsonify({'error': 'Données manquantes'}), 400
 
     new_student = Student(name=data['name'], email=data['email'])
     db.session.add(new_student)
     db.session.commit()
+
+    if request.form:
+        return "<h3>Étudiant ajouté avec succès !</h3><a href='/'>Retour</a>"
     return jsonify(new_student.to_dict()), 201
 
 @app.route('/students/<int:id>', methods=['GET'])
@@ -108,13 +126,16 @@ def get_grades():
 
 @app.route('/grades', methods=['POST'])
 def add_grade():
-    data = request.get_json()
+    data = request.form or request.get_json()
     if not data or 'subject' not in data or 'score' not in data or 'student_id' not in data:
         return jsonify({'error': 'Données incomplètes'}), 400
 
-    new_grade = Grade(subject=data['subject'], score=data['score'], student_id=data['student_id'])
+    new_grade = Grade(subject=data['subject'], score=float(data['score']), student_id=int(data['student_id']))
     db.session.add(new_grade)
     db.session.commit()
+
+    if request.form:
+        return "<h3>Note ajoutée avec succès !</h3><a href='/'>Retour</a>"
     return jsonify(new_grade.to_dict()), 201
 
 # ---------------- Lancement ----------------
