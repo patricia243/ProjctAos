@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template_string, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from config import Config
@@ -35,53 +35,93 @@ class Grade(db.Model):
         }
 
 # ---------------- Page d'accueil ----------------
-@app.route("/", methods=["GET"])
+@app.route('/')
 def home():
-    return '''
+    return render_template_string('''
     <!DOCTYPE html>
     <html lang="fr">
     <head>
         <meta charset="UTF-8">
-        <title>Formulaires Étudiants & Notes</title>
+        <title>Bienvenue</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     </head>
-    <body class="bg-light">
-        <div class="container py-5">
-            <h1 class="text-primary mb-4">Ajouter un Étudiant 📘</h1>
-            <form action="/students" method="post" class="mb-5">
-                <div class="mb-3">
-                    <label class="form-label">Nom</label>
-                    <input type="text" name="name" class="form-control" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Email</label>
-                    <input type="email" name="email" class="form-control" required>
-                </div>
-                <button type="submit" class="btn btn-primary">Ajouter Étudiant</button>
-            </form>
+    <body class="bg-light text-center py-5">
+        <div class="container">
+            <h1 class="mb-4">🎓 Bienvenue sur l'API Étudiants</h1>
+            <p class="lead">Cliquez ci-dessous pour ajouter un nouvel étudiant et une note.</p>
+            <a href="{{ url_for('formulaire') }}" class="btn btn-primary btn-lg">Ajouter </a>
+        </div>
+    </body>
+    </html>
+    ''')
 
-            <h1 class="text-success mb-4">Ajouter une Note 📝</h1>
-            <form action="/grades" method="post">
+
+# ---------------- Formulaire HTML ----------------
+@app.route('/formulaire', methods=['GET', 'POST'])
+def formulaire():
+    if request.method == 'POST':
+        name = request.form['name']
+        email = request.form['email']
+        subject = request.form['subject']
+        score = float(request.form['score'])
+
+        student = Student(name=name, email=email)
+        db.session.add(student)
+        db.session.commit()
+
+        grade = Grade(subject=subject, score=score, student_id=student.id)
+        db.session.add(grade)
+        db.session.commit()
+
+        # Redirection avec message de succès
+        return redirect(url_for('formulaire', success=1))
+
+    # Afficher le message s’il est dans l’URL
+    success = request.args.get('success')
+
+    return render_template_string('''
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <title>Formulaire Étudiant</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-light py-5">
+        <div class="container bg-white p-5 rounded shadow">
+            <h2 class="mb-4 text-primary">Ajouter un étudiant et une note</h2>
+
+            {% if success %}
+                <div class="alert alert-success" role="alert">
+                    ✅ Étudiant ajouté avec succès !
+                </div>
+            {% endif %}
+
+            <form method="POST">
                 <div class="mb-3">
-                    <label class="form-label">ID Étudiant</label>
-                    <input type="number" name="student_id" class="form-control" required>
+                    <label for="name" class="form-label">Nom</label>
+                    <input type="text" class="form-control" name="name" required>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label">Matière</label>
-                    <input type="text" name="subject" class="form-control" required>
+                    <label for="email" class="form-label">Email</label>
+                    <input type="email" class="form-control" name="email" required>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label">Note</label>
-                    <input type="number" step="0.01" name="score" class="form-control" required>
+                    <label for="subject" class="form-label">Matière</label>
+                    <input type="text" class="form-control" name="subject" required>
                 </div>
-                <button type="submit" class="btn btn-success">Ajouter Note</button>
+                <div class="mb-3">
+                    <label for="score" class="form-label">Note</label>
+                    <input type="number" class="form-control" name="score" min="0" max="100" required>
+                </div>
+                <button type="submit" class="btn btn-success">Soumettre</button>
+                <a href="{{ url_for('home') }}" class="btn btn-secondary">Retour</a>
             </form>
         </div>
     </body>
     </html>
-    '''
-
-# ---------------- Routes Students ----------------
+    ''', success=success)
+# ---------------- Routes API JSON ----------------
 @app.route('/students', methods=['GET'])
 def get_students():
     students = Student.query.all()
@@ -89,36 +129,14 @@ def get_students():
 
 @app.route('/students', methods=['POST'])
 def add_student():
-    data = request.form or request.get_json()
+    data = request.get_json()
     if not data or 'name' not in data or 'email' not in data:
         return jsonify({'error': 'Données manquantes'}), 400
-
     new_student = Student(name=data['name'], email=data['email'])
     db.session.add(new_student)
     db.session.commit()
-
-    if request.form:
-        return "<h3>Étudiant ajouté avec succès !</h3><a href='/'>Retour</a>"
     return jsonify(new_student.to_dict()), 201
 
-@app.route('/students/<int:id>', methods=['GET'])
-def get_student(id):
-    student = Student.query.get_or_404(id)
-    return jsonify(student.to_dict())
-
-@app.route('/students/<int:id>', methods=['PUT'])
-def update_student(id):
-    student = Student.query.get_or_404(id)
-    data = request.get_json()
-    if 'name' in data:
-        student.name = data['name']
-    if 'email' in data:
-        student.email = data['email']
-    
-    db.session.commit()
-    return jsonify(student.to_dict())
-
-# ---------------- Routes Grades ----------------
 @app.route('/grades', methods=['GET'])
 def get_grades():
     grades = Grade.query.all()
@@ -126,16 +144,12 @@ def get_grades():
 
 @app.route('/grades', methods=['POST'])
 def add_grade():
-    data = request.form or request.get_json()
+    data = request.get_json()
     if not data or 'subject' not in data or 'score' not in data or 'student_id' not in data:
         return jsonify({'error': 'Données incomplètes'}), 400
-
-    new_grade = Grade(subject=data['subject'], score=float(data['score']), student_id=int(data['student_id']))
+    new_grade = Grade(subject=data['subject'], score=data['score'], student_id=data['student_id'])
     db.session.add(new_grade)
     db.session.commit()
-
-    if request.form:
-        return "<h3>Note ajoutée avec succès !</h3><a href='/'>Retour</a>"
     return jsonify(new_grade.to_dict()), 201
 
 # ---------------- Lancement ----------------
