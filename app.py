@@ -114,13 +114,19 @@ def formulaire():
                     <label for="score" class="form-label">Note</label>
                     <input type="number" class="form-control" name="score" min="0" max="100" required>
                 </div>
-                <button type="submit" class="btn btn-success">Soumettre</button>
-                <a href="{{ url_for('home') }}" class="btn btn-secondary">Retour</a>
+               <button type="submit" class="btn btn-success">Soumettre</button>
+                
+                <a href="{{ url_for('students_html') }}" class="btn btn-info text-white">Voir Liste des Étudiants</a>
+               
+                <a href="{{ url_for('home') }}" class="btn btn-secondary">🏠 Retour à l'accueil</a>                 
+                
+                
             </form>
         </div>
     </body>
     </html>
     ''', success=success)
+
 # ---------------- Routes API JSON ----------------
 @app.route('/students', methods=['GET'])
 def get_students():
@@ -151,6 +157,64 @@ def add_grade():
     db.session.add(new_grade)
     db.session.commit()
     return jsonify(new_grade.to_dict()), 201
+
+
+# ---------------- ajouter une route HTML séparée /students/html ----------------
+
+@app.route('/students/html')
+def students_html():
+    students = Student.query.all()
+    return render_template_string('''
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <title>Liste des Étudiants</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-light py-5">
+        <div class="container">
+            <h2 class="mb-4 text-center text-primary">📋 Liste des Étudiants et leurs Notes</h2>
+            <table class="table table-bordered table-striped shadow-sm">
+                <thead class="table-dark">
+                    <tr>
+                        <th>#</th>
+                        <th>Nom</th>
+                        <th>Email</th>
+                        <th>Matière</th>
+                        <th>Note</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students %}
+                        {% for grade in student.grades %}
+                            <tr>
+                                <td>{{ student.id }}</td>
+                                <td>{{ student.name }}</td>
+                                <td>{{ student.email }}</td>
+                                <td>{{ grade.subject }}</td>
+                                <td>{{ grade.score }}</td>
+                            </tr>
+                        {% endfor %}
+                        {% if student.grades|length == 0 %}
+                            <tr>
+                                <td>{{ student.id }}</td>
+                                <td>{{ student.name }}</td>
+                                <td>{{ student.email }}</td>
+                                <td colspan="2" class="text-muted">Aucune note</td>
+                            </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="text-center mt-4">
+                <a href="{{ url_for('home') }}" class="btn btn-secondary">🏠 Retour à l'accueil</a>
+            </div>
+        </div>
+    </body>
+    </html>
+    ''', students=students)
+
 
 # ---------------- Lancement ----------------
 if __name__ == '__main__':
